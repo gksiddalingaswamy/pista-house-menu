@@ -1311,44 +1311,16 @@ let restaurantTables =
 // ------------------------------------------
 // GENERATE TABLES
 // ------------------------------------------
-function displayTables() {
+
+            function displayTables() {
 
     const tableList =
         document.getElementById("tableList");
 
     if (!tableList) return;
 
-    restaurantTables =
-        JSON.parse(
-            localStorage.getItem("restaurantTables")
-        ) || [];
-
-    if (restaurantTables.length === 0) {
-
-        tableList.innerHTML = `
-            <div class="card">
-
-                <h3>🪑 No Tables Created</h3>
-
-                <p>
-                    Enter the number of tables
-                    and generate QR codes.
-                </p>
-
-            </div>
-        `;
-
-        return;
-    }
-
-    const baseURL =
-        window.location.href
-        .split("/")
-        .slice(0, -1)
-        .join("/");
-
     const customerURL =
-        `${baseURL}/customer.html`;
+        "https://gksiddalingaswamy.github.io/pista-house-menu/customer.html";
 
     const qrURL =
         "https://api.qrserver.com/v1/create-qr-code/?size=400x400&ecc=H&color=1a5632&bgcolor=ffffff&data=" +
@@ -1388,7 +1360,7 @@ function displayTables() {
                 class="qr-btn-branded"
                 onclick="downloadQR(
                     '${qrURL}',
-                    'Restaurant'
+                    'Pista-House-Menu-QR'
                 )"
             >
                 ⬇️ Download QR
@@ -1397,8 +1369,7 @@ function displayTables() {
         </div>
 
     `;
-}
-
+            }
 
 
 // ------------------------------------------
