@@ -3,447 +3,352 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>Pista House Ballari - Admin</title>
-
     <link rel="stylesheet" href="Admin.css">
 </head>
-
 <body>
 
+<!-- TOPBAR -->
 <header class="topbar">
-
     <div>
         <h1>🍽️ Pista House</h1>
         <p>Restaurant Admin Panel</p>
     </div>
-
     <button onclick="logout()">Logout</button>
-
 </header>
-
 
 <div class="layout">
 
-    <!-- SIDEBAR -->
-
+    <!-- SIDEBAR NAVIGATION -->
     <aside class="sidebar">
-
         <button class="nav active" onclick="showSection('dashboard')">
             📊 Dashboard
         </button>
-
         <button class="nav" onclick="showSection('restaurant')">
             🏪 Restaurant
         </button>
-
         <button class="nav" onclick="showSection('menu')">
             🍔 Menu Items
         </button>
-
         <button class="nav" onclick="showSection('orders')">
             🛎️ Orders
         </button>
-
         <button class="nav" onclick="showSection('tables')">
             🪑 Tables & QR
         </button>
-
     </aside>
 
-
-    <!-- MAIN CONTENT -->
-
+    <!-- MAIN CONTENT AREA -->
     <main class="content">
 
-
-        <!-- DASHBOARD -->
-
+        <!-- 1. DASHBOARD SECTION -->
         <section id="dashboard" class="section active">
-
             <div class="section-title">
-
                 <div>
                     <h2>Dashboard</h2>
                     <p>Welcome to your restaurant admin panel.</p>
                 </div>
-
             </div>
 
-
             <div class="stats">
-
                 <div class="stat-card">
                     <span>🛎️</span>
                     <h3 id="totalOrders">0</h3>
                     <p>Total Orders</p>
                 </div>
-
                 <div class="stat-card">
                     <span>⏳</span>
                     <h3 id="pendingOrders">0</h3>
                     <p>Pending Orders</p>
                 </div>
-
                 <div class="stat-card">
                     <span>🍳</span>
                     <h3 id="preparingOrders">0</h3>
                     <p>Preparing</p>
                 </div>
-
                 <div class="stat-card">
                     <span>💰</span>
                     <h3 id="salesAmount">₹0</h3>
                     <p>Total Sales</p>
                 </div>
-
             </div>
-
 
             <div class="card">
-
                 <h3>Quick Actions</h3>
-
                 <div class="quick-actions">
-
-                    <button onclick="showSection('menu')">
-                        ➕ Add Menu Item
-                    </button>
-
-                    <button onclick="showSection('orders')">
-                        🛎️ View Orders
-                    </button>
-
-                    <button onclick="showSection('restaurant')">
-                        ⚙️ Restaurant Settings
-                    </button>
-
-                    <button onclick="showSection('tables')">
-                        📱 Generate QR
-                    </button>
-
+                    <button onclick="showSection('menu')">➕ Add Menu Item</button>
+                    <button onclick="showSection('orders')">🛎️ View Orders</button>
+                    <button onclick="showSection('restaurant')">⚙️ Restaurant Settings</button>
+                  
+                    <button onclick="showSection('tables')">📱 Generate QR</button>
+                  
+                  <button
+    type="button"
+    onclick="showSection('analytics')">
+    📊 Sales Analytics
+                  </button>
                 </div>
-
             </div>
-
         </section>
 
-
-
-        <!-- RESTAURANT -->
-
+              <!-- 2. RESTAURANT SETTINGS SECTION -->
         <section id="restaurant" class="section">
-
             <div class="section-title">
-
                 <div>
                     <h2>Restaurant Details</h2>
                     <p>Manage information shown to customers.</p>
                 </div>
-
             </div>
-
 
             <div class="card">
-
                 <div class="form-grid">
-
                     <div class="field">
-
                         <label>Restaurant Name</label>
-
-                        <input
-                            id="restaurantName"
-                            value="Pista House Ballari"
-                        >
-
+                        <input id="restaurantName" value="Pista House Ballari">
                     </div>
-
-
                     <div class="field">
-
                         <label>Phone Number</label>
-
-                        <input
-                            id="restaurantPhone"
-                            value="+91 99662 28888"
-                        >
-
+                        <input id="restaurantPhone" value="+91 99662 28888">
                     </div>
-
-
                     <div class="field full">
-
                         <label>Address</label>
-
                         <textarea id="restaurantAddress">2nd Gate, Hospet Rd, beside Venkat Kamineni Hospital, Devi Nagar, Ballari, Karnataka 583104</textarea>
-
                     </div>
-
-
                     <div class="field full">
-
                         <label>Instagram URL</label>
-
-                        <input
-                            id="restaurantInstagram"
-                            value="https://www.instagram.com/pistahouse_ballari_?stkn=ajU5NDRueW90d25n"
-                        >
-
+                        <input id="restaurantInstagram" value="https://www.instagram.com/pistahouse_ballari_?stkn=ajU5NDRueW90d25n">
                     </div>
-
-
                     <div class="field">
-
                         <label>Opening Time</label>
-
-                        <input
-                            type="time"
-                            id="openingTime"
-                            value="06:00"
-                        >
-
+                        <input type="time" id="openingTime" value="06:00">
                     </div>
-
-
                     <div class="field">
-
                         <label>Closing Time</label>
-
-                        <input
-                            type="time"
-                            id="closingTime"
-                            value="23:00"
-                        >
-
+                        <input type="time" id="closingTime" value="23:00">
                     </div>
-
-
                     <div class="field">
-
                         <label>Average Preparation Time</label>
-
-                        <input
-                            type="number"
-                            id="preparationTime"
-                            value="25"
-                        >
-
+                        <input type="number" id="preparationTime" value="25">
                     </div>
-
-
                     <div class="field">
-
                         <label>Price Range</label>
-
-                        <input
-                            id="priceRange"
-                            value="₹200 - ₹400 per person"
-                        >
-
+                        <input id="priceRange" value="₹200 - ₹400 per person">
                     </div>
-
-
                     <div class="field full">
-
                         <label>Description</label>
-
                         <textarea id="restaurantDescription">Authentic food, delicious biryani and Arabian specialities.</textarea>
-
                     </div>
-
                 </div>
-
-
-                <button class="primary-btn" onclick="saveRestaurant()">
-                    💾 Save Restaurant Details
-                </button>
-
+                <button class="primary-btn" onclick="saveRestaurant()">💾 Save Restaurant Details</button>
             </div>
-
         </section>
 
-
-
-        <!-- MENU -->
-
+        <!-- 3. MENU MANAGEMENT SECTION -->
         <section id="menu" class="section">
-
             <div class="section-title">
-
                 <div>
                     <h2>Menu Management</h2>
                     <p>Add, edit and delete food items.</p>
                 </div>
-
-                <button class="primary-btn" onclick="openFoodForm()">
-                    ➕ Add Item
-                </button>
-
+                <button class="primary-btn" onclick="openFoodForm()">➕ Add Item</button>
             </div>
 
-
             <div id="foodForm" class="card hidden">
-
                 <h3 id="formTitle">Add Menu Item</h3>
-
-
                 <div class="form-grid">
-
                     <div class="field">
-
                         <label>Food Name</label>
-
                         <input id="foodName" placeholder="Chicken Biryani">
-
                     </div>
-
-
                     <div class="field">
-
                         <label>Price</label>
-
-                        <input
-                            type="number"
-                            id="foodPrice"
-                            placeholder="180"
-                        >
-
+                        <input type="number" id="foodPrice" placeholder="180">
                     </div>
-
-
                     <div class="field">
-
                         <label>Category</label>
-
                         <select id="foodCategory">
-
                             <option>Starters</option>
                             <option>Main Course</option>
                             <option>Rice</option>
                             <option>Drinks</option>
                             <option>Desserts</option>
-
                         </select>
-
                     </div>
-
-
                     <div class="field">
-
                         <label>Preparation Time</label>
-
-                        <input
-                            type="number"
-                            id="foodTime"
-                            value="20"
-                        >
-
+                        <input type="number" id="foodTime" value="20">
                     </div>
-
-
                     <div class="field full">
-
-    <label>Food Image</label>
-
-    <input
-        type="file"
-        id="foodImage"
-        accept="image/*"
-    >
-
-    <div id="foodImagePreview" class="food-image-preview">
-        <span>📷 Select food photo</span>
-    </div>
-
+                        <label>Food Image</label>
+                        <input type="file" id="foodImage" accept="image/*">
+                        <div id="foodImagePreview" class="food-image-preview">
+                            <span>📷 Select food photo</span>
+                        </div>
                     </div>
-
-
                     <div class="field full">
-
                         <label>Description</label>
-
-                        <textarea
-                            id="foodDescription"
-                            placeholder="Delicious chicken biryani..."
-                        ></textarea>
-
+                        <textarea id="foodDescription" placeholder="Delicious chicken biryani..."></textarea>
                     </div>
-
                 </div>
-
-
                 <div class="form-buttons">
-
-                    <button class="primary-btn" onclick="saveFood()">
-                        Save Item
-                    </button>
-
-                    <button class="cancel-btn" onclick="closeFoodForm()">
-                        Cancel
-                    </button>
-
+                    <button class="primary-btn" onclick="saveFood()">Save Item</button>
+                    <button class="cancel-btn" onclick="closeFoodForm()">Cancel</button>
                 </div>
-
             </div>
 
-
             <div id="menuList" class="menu-list"></div>
-
         </section>
 
-
-
-        <!-- ORDERS -->
-
+        <!-- 4. ORDERS SECTION -->
         <section id="orders" class="section">
-
             <div class="section-title">
-
                 <div>
                     <h2>Live Orders</h2>
                     <p>Manage customer orders.</p>
                 </div>
-
             </div>
-
-
             <div id="ordersList"></div>
-
         </section>
 
-<section>
-
+        <!-- 5. TABLES & QR SECTION -->
+        <section id="tables" class="section">
             <div id="tableList" class="table-grid"></div>
 
-        </section>
+           </section>
+<!-- 6. SALES ANALYTICS SECTION -->
+<section id="analytics" class="section">
 
-    </main>
+    <div class="section-title">
 
-</div>
-
-  <!-- QR PREVIEW -->
-<div id="qrPreviewModal" class="qr-preview-modal">
-
-    <div class="qr-preview-box">
-
-        <button
-            class="qr-preview-close"
-            onclick="closeQRPreview()">
-            ✕
-        </button>
-
-        <img
-            src="qr.png"
-            class="qr-preview-image"
-            alt="Pista House QR">
+        <div>
+            <h2>📊 Sales Analytics</h2>
+            <p>View your restaurant performance</p>
+        </div>
 
     </div>
 
+    <div id="analyticsContent">
+
+    <div class="analytics-controls">
+
+        <button
+            type="button"
+            class="analytics-btn active"
+            onclick="showAnalyticsPeriod('today')">
+            📅 Today
+        </button>
+
+        <button
+            type="button"
+            class="analytics-btn"
+            onclick="showAnalyticsPeriod('yesterday')">
+            ⏮️ Yesterday
+        </button>
+
+        <button
+            type="button"
+            class="analytics-btn"
+            onclick="showAnalyticsPeriod('week')">
+            📆 1 Week
+        </button>
+
+        <button
+            type="button"
+            class="analytics-btn"
+            onclick="showAnalyticsPeriod('month')">
+            🗓️ Month
+        </button>
+
+        <button
+            type="button"
+            class="analytics-btn"
+            onclick="showAnalyticsPeriod('year')">
+            📊 Year
+        </button>
+
+    </div>
+
+
+    <div
+        id="monthSelector"
+        class="month-selector hidden">
+
+        <label>Select Month</label>
+
+        <select
+            id="analyticsMonth"
+            onchange="showSelectedMonth()">
+
+            <option value="0">January</option>
+            <option value="1">February</option>
+            <option value="2">March</option>
+            <option value="3">April</option>
+            <option value="4">May</option>
+            <option value="5">June</option>
+            <option value="6">July</option>
+            <option value="7">August</option>
+            <option value="8">September</option>
+            <option value="9">October</option>
+            <option value="10">November</option>
+            <option value="11">December</option>
+
+        </select>
+
+    </div>
+
+      <div
+    id="yearSelector"
+    class="month-selector hidden">
+
+    <label>Select Year</label>
+
+    <select
+        id="analyticsYear"
+        onchange="showSelectedYear()">
+    </select>
+
+      </div>
+
+    <div id="analyticsResult">
+
+        <div class="card">
+
+            <h3>📊 Sales Analytics</h3>
+
+            <p>
+                Select Today, Yesterday, 1 Week, Month or Year
+                to view sales.
+            </p>
+
+        </div>
+
+    </div>
+
+    </div>
+
+    
+
+</section>
+      
+    </main>
 </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  
+<!-- QR PREVIEW MODAL -->
+<div id="qrPreviewModal" class="qr-preview-modal">
+    <div class="qr-preview-box">
+        <button class="qr-preview-close" onclick="closeQRPreview()">✕</button>
+        <img src="qr.png" class="qr-preview-image" alt="Pista House QR">
+    </div>
+</div>
 
+<!-- SCRIPTS -->
+  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
 
 <script src="Admin.js"></script>
 

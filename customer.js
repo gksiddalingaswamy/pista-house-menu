@@ -27,51 +27,105 @@ document.addEventListener("DOMContentLoaded", function () {
 // LOAD MENU
 // ======================================================
 
-function loadMenu() {
+async function loadMenu() {
 
-    const savedMenu =
-        localStorage.getItem("menuItems");
+    // 1. Show local cached menu immediately
+    try {
 
-    console.log("CUSTOMER MENU DATA:", savedMenu);
+        const savedMenu =
+            localStorage.getItem("menuItems");
 
-    if (!savedMenu) {
+        if (savedMenu) {
 
-        console.log("❌ menuItems localStorage alli illa");
-
-        menuItems = [];
-
-    } else {
-
-        try {
-
-            const parsedMenu =
+            const cachedMenu =
                 JSON.parse(savedMenu);
 
-            console.log(
-                "✅ MENU ITEMS COUNT:",
-                parsedMenu.length
-            );
+            if (Array.isArray(cachedMenu) &&
+                cachedMenu.length > 0) {
 
-            menuItems =
-                Array.isArray(parsedMenu)
-                    ? parsedMenu
-                    : [];
+                menuItems = cachedMenu;
 
-        } catch (error) {
-
-            console.error(
-                "❌ MENU JSON ERROR:",
-                error
-            );
-
-            menuItems = [];
-
+                displayCategories();
+                displayCustomerMenu();
+            }
         }
+
+    } catch (error) {
+
+        console.error(
+            "❌ Cache Menu Error:",
+            error
+        );
 
     }
 
-    displayCategories();
-    displayCustomerMenu();
+
+    // 2. Get latest menu from Firebase
+    try {
+
+        const snapshot =
+            await database
+                .ref("pistaHouse/menuItems")
+                .once("value");
+
+        const firebaseMenu =
+            snapshot.val();
+
+
+        // Firebase object format
+        if (
+            firebaseMenu &&
+            !Array.isArray(firebaseMenu) &&
+            typeof firebaseMenu === "object"
+        ) {
+
+            menuItems =
+                Object.values(firebaseMenu);
+
+        }
+
+
+        // Firebase array format
+        else if (Array.isArray(firebaseMenu)) {
+
+            menuItems =
+                firebaseMenu;
+
+        }
+
+
+        // 3. Save latest Firebase menu to cache
+        localStorage.setItem(
+            "menuItems",
+            JSON.stringify(menuItems)
+        );
+
+
+        // 4. Refresh categories + food
+        displayCategories();
+        displayCustomerMenu();
+
+
+        console.log(
+            "✅ Latest Firebase Menu Loaded:",
+            menuItems.length
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "❌ Firebase Menu Error:",
+            error
+        );
+
+
+        // If Firebase fails,
+        // cached menu is already displayed
+        displayCategories();
+        displayCustomerMenu();
+
+    }
 
 }
 
@@ -908,7 +962,7 @@ function closeCheckout() {
 // PLACE ORDER
 // ======================================================
 
-function placeOrder() {
+async function placeOrder() {
 
     const nameInput =
         document.getElementById(
@@ -1150,29 +1204,32 @@ const estimatedTime = cart.reduce(function(maxTime, item) {
     orders.push(order);
 
 
-    // SAVE ORDERS
+// SAVE ORDER TO FIREBASE
 
-    try {
+try {
 
-        localStorage.setItem(
-            "orders",
-            JSON.stringify(orders)
-        );
+    await database
+        .ref("pistaHouse/orders/" + order.id)
+        .set(order);
 
-    } catch (error) {
+    console.log(
+        "✅ Order saved to Firebase:",
+        order.id
+    );
 
-        console.error(
-            "Order save error:",
-            error
-        );
+} catch (error) {
 
-        alert(
-            "Storage is full. Please clear old test orders and try again."
-        );
+    console.error(
+        "❌ Firebase Order Save Error:",
+        error
+    );
 
-        return;
+    alert(
+        "Order save failed. Please try again."
+    );
 
-    }
+    return;
+}
 
 
     // CURRENT ORDER

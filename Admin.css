@@ -954,3 +954,91 @@ select:focus {
 
     z-index: 100000;
 }
+
+/* =========================================
+   SALES ANALYTICS BUTTON DESIGN
+   ========================================= */
+
+.analytics-btn {
+    border: 1px solid #d1d5db;
+    background: #ffffff;
+    color: #1f2937;
+    padding: 11px 18px;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-right: 6px;
+    margin-bottom: 8px;
+    transition: all 0.2s ease;
+}
+
+/* SELECTED BUTTON */
+.analytics-btn.active {
+    background: #2563eb;
+    color: #ffffff;
+    border-color: #2563eb;
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+}
+
+/* BUTTON PRESS */
+.analytics-btn:active {
+    transform: scale(0.97);
+}
+
+/* HOVER */
+.analytics-btn:hover {
+    border-color: #2563eb;
+}
+
+/* ANALYTICS BUTTON AREA */
+.analytics-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 15px 0;
+}
+
+/* MOBILE */
+@media (max-width: 600px) {
+
+    .analytics-btn {
+        font-size: 15px;
+        padding: 10px 14px;
+        border-radius: 11px;
+        margin-right: 0;
+    }
+
+    .analytics-buttons {
+        gap: 6px;
+    }
+}
+
+.toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: #16a34a;
+    color: white;
+    padding: 16px 28px;
+    border-radius: 14px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    font-weight: bold;
+    font-size: 15px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    z-index: 9999;
+    max-width: 85%;
+    text-align: center;
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+.toast.error {
+    background: #dc2626;
+}
