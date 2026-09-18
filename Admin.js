@@ -2422,21 +2422,42 @@ function escapeHTML(value) {
 
 // Image File Reader
 
-
-function showToast(message, type) {
-    const toast = document.getElementById("toastNotification");
-    if (!toast) {
-        alert(message);
-        return;
-    }
+  function showToast(message, type) {
+    const toast = document.createElement("div");
 
     toast.textContent = message;
-    toast.className = "toast show" + (type === "error" ? " error" : "");
 
-    setTimeout(() => {
-        toast.className = "toast";
+    toast.style.cssText = `
+        position:fixed;
+        top:20px;
+        left:50%;
+        transform:translateX(-50%);
+        z-index:999999;
+        background:#16a34a;
+        color:white;
+        padding:14px 20px;
+        border-radius:12px;
+        font-size:15px;
+        font-weight:700;
+        box-shadow:0 6px 20px rgba(0,0,0,.25);
+        max-width:90%;
+        text-align:center;
+    `;
+
+    if (type === "error") {
+        toast.style.background = "#dc2626";
+    }
+
+    document.body.appendChild(toast);
+
+    setTimeout(function() {
+        toast.remove();
     }, 3000);
-}
+  }
+        
+
+    
+
 
 function readImageFile(file) {
     return new Promise((resolve, reject) => {
