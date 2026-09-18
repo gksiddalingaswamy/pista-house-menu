@@ -162,24 +162,40 @@ async function setupAdminPushNotifications() {
 // ==========================================
 // FIREBASE MENU SYNC
 // ==========================================
-
 async function loadMenuFromFirebase() {
 
     try {
 
-        const snapshot =
-            await database
-                .ref("pistaHouse/menuItems")
-                .once("value");
+        const snapshot = await database
+            .ref("pistaHouse/menuItems")
+            .once("value");
 
-        const firebaseMenu =
-            snapshot.val();
+        const firebaseMenu = snapshot.val();
 
-        if (Array.isArray(firebaseMenu)) {
+        if (firebaseMenu && typeof firebaseMenu === "object") {
 
-            menuItems = firebaseMenu;
+            // Firebase object -> array
+            menuItems = Object.values(firebaseMenu);
 
-            // Local cache
+            // Remove invalid duplicate items
+            const uniqueItems = [];
+            const seenIds = new Set();
+
+            menuItems.forEach(function(item) {
+
+                if (!item || !item.id) return;
+
+                const id = String(item.id);
+
+                if (!seenIds.has(id)) {
+                    seenIds.add(id);
+                    uniqueItems.push(item);
+                }
+
+            });
+
+            menuItems = uniqueItems;
+
             localStorage.setItem(
                 "menuItems",
                 JSON.stringify(menuItems)
@@ -190,28 +206,39 @@ async function loadMenuFromFirebase() {
                 menuItems.length
             );
 
+            displayMenu();
             return;
         }
 
-        // If Firebase is empty,
-        // use old localStorage data once
+        // Firebase empty → localStorage fallback
         const localMenu =
             localStorage.getItem("menuItems");
 
         if (localMenu) {
 
-            const parsedMenu =
-                JSON.parse(localMenu);
+            try {
 
-            if (Array.isArray(parsedMenu)) {
+                const parsedMenu =
+                    JSON.parse(localMenu);
 
-                menuItems = parsedMenu;
+                if (Array.isArray(parsedMenu)) {
 
-                await saveMenuToFirebase();
+                    menuItems = parsedMenu;
 
-                console.log(
-                    "✅ Old localStorage menu migrated to Firebase"
+                    await saveMenuToFirebase();
+
+                    console.log(
+                        "✅ Local menu migrated to Firebase"
+                    );
+                }
+
+            } catch (error) {
+
+                console.error(
+                    "❌ Local menu parse error:",
+                    error
                 );
+
             }
 
         }
@@ -223,13 +250,18 @@ async function loadMenuFromFirebase() {
             error
         );
 
-        // Fallback to localStorage
+        // LocalStorage fallback
         try {
 
+            const localMenu =
+                localStorage.getItem("menuItems");
+
             menuItems =
-                JSON.parse(
-                    localStorage.getItem("menuItems")
-                ) || [];
+                localMenu
+                    ? JSON.parse(localMenu)
+                    : [];
+
+            displayMenu();
 
         } catch (e) {
 
@@ -240,6 +272,9 @@ async function loadMenuFromFirebase() {
     }
 
 }
+
+
+
 
 
 async function loadOrdersFromFirebase() {
@@ -256,18 +291,309 @@ async function loadOrdersFromFirebase() {
     }
 }
 
+let adminOrdersInitialized = false;
+let knownAdminOrderIds = new Set();
+
+
+function createAdminNotificationUI() {
+
+    // Already created
+    if (
+        document.getElementById(
+            "adminNotificationButton"
+        )
+    ) {
+        return;
+    }
+
+    const button =
+        document.createElement("button");
+
+    button.id =
+        "adminNotificationButton";
+
+    button.innerHTML =
+        "🔔 Notifications";
+
+    button.style.cssText = `
+        position:fixed;
+        top:15px;
+        right:15px;
+        z-index:99999;
+        border:none;
+        border-radius:12px;
+        padding:12px 16px;
+        background:#16a34a;
+        color:white;
+        font-size:14px;
+        font-weight:bold;
+        cursor:pointer;
+        box-shadow:0 4px 15px rgba(0,0,0,.20);
+    `;
+
+    button.onclick =
+        async function() {
+
+            if (
+                !("Notification" in window)
+            ) {
+                alert(
+                    "This browser does not support notifications."
+                );
+                return;
+            }
+
+            try {
+
+                const permission =
+                    await Notification.requestPermission();
+
+                if (
+                    permission === "granted"
+                ) {
+
+                    showToast(
+                        "🔔 Notifications enabled!"
+                    );
+
+                } else {
+
+                    alert(
+                        "Notification permission not granted."
+                    );
+
+                }
+
+            } catch (error) {
+
+                console.error(
+                    "Notification permission error:",
+                    error
+                );
+
+            }
+
+        };
+
+    document.body.appendChild(button);
+}
+
+
+function showNewOrderNotification(order) {
+
+    const customer =
+        order.customerName ||
+        order.name ||
+        "Customer";
+
+    const table =
+        order.tableNumber ||
+        order.table ||
+        "-";
+
+    const total =
+        Number(order.total || 0)
+            .toLocaleString("en-IN");
+
+    const message =
+        `🛎️ New order from ${customer} | Table ${table} | ₹${total}`;
+
+
+    // In-page toast
+    showToast(
+        message
+    );
+
+
+    // Browser notification
+    try {
+
+        if (
+            "Notification" in window &&
+            Notification.permission === "granted"
+        ) {
+
+            const notification =
+                new Notification(
+                    "🛎️ New Order - Pista House",
+                    {
+                        body:
+                            `Customer: ${customer}\n` +
+                            `Table: ${table}\n` +
+                            `Total: ₹${total}`,
+
+                        icon: "logo.png",
+
+                        tag:
+                            "pista-house-new-order-" +
+                            String(order.id),
+
+                        renotify: true
+                    }
+                );
+
+            notification.onclick =
+                function() {
+
+                    window.focus();
+
+                    notification.close();
+
+                    showSection(
+                        "orders"
+                    );
+
+                };
+
+        }
+
+    } catch (error) {
+
+        console.error(
+            "❌ Browser notification error:",
+            error
+        );
+
+    }
+
+
+    // Sound
+    try {
+
+        const audio =
+            new Audio();
+
+        audio.src =
+            "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=";
+
+        audio.play()
+            .catch(
+                () => {}
+            );
+
+    } catch (error) {}
+
+}
+
+
 function listenForOrderUpdates() {
-    database.ref("pistaHouse/orders").on("value", function (snapshot) {
-        const firebaseOrders = snapshot.val();
-        orders = (firebaseOrders && typeof firebaseOrders === "object")
-            ? Object.values(firebaseOrders)
-            : [];
-        localStorage.setItem("orders", JSON.stringify(orders));
-        displayOrders();
-        updateDashboard();
-    }, function (error) {
-        console.error("❌ Firebase Orders Listener Error:", error);
-    });
+
+    createAdminNotificationUI();
+
+
+    database
+        .ref("pistaHouse/orders")
+        .on(
+            "value",
+            function(snapshot) {
+
+                const firebaseOrders =
+                    snapshot.val();
+
+
+                const newOrders =
+                    (
+                        firebaseOrders &&
+                        typeof firebaseOrders ===
+                        "object"
+                    )
+                        ? Object.values(
+                            firebaseOrders
+                        )
+                        : [];
+
+
+                // Find NEW orders
+                if (
+                    adminOrdersInitialized
+                ) {
+
+                    newOrders.forEach(
+                        function(order) {
+
+                            if (!order || !order.id) {
+                                return;
+                            }
+
+                            const orderId =
+                                String(
+                                    order.id
+                                );
+
+                            if (
+                                !knownAdminOrderIds
+                                    .has(orderId)
+                            ) {
+
+                                showNewOrderNotification(
+                                    order
+                                );
+
+                            }
+
+                        }
+                    );
+
+                }
+
+
+                // Update known IDs
+                knownAdminOrderIds =
+                    new Set(
+                        newOrders
+                            .filter(
+                                order =>
+                                    order &&
+                                    order.id
+                            )
+                            .map(
+                                order =>
+                                    String(
+                                        order.id
+                                    )
+                            )
+                    );
+
+
+                // First Firebase load
+                if (
+                    !adminOrdersInitialized
+                ) {
+
+                    adminOrdersInitialized =
+                        true;
+
+                }
+
+
+                // Update global orders
+                orders =
+                    newOrders;
+
+
+                localStorage.setItem(
+                    "orders",
+                    JSON.stringify(
+                        orders
+                    )
+                );
+
+
+                displayOrders();
+
+                updateDashboard();
+
+            },
+            function(error) {
+
+                console.error(
+                    "❌ Firebase Orders Listener Error:",
+                    error
+                );
+
+            }
+        );
+
 }
 
 
@@ -1120,77 +1446,299 @@ function clearFoodForm() {
     if (document.getElementById("foodDescription")) document.getElementById("foodDescription").value = "";
 }
 
-async function saveFood() {
-    const name = document.getElementById("foodName").value.trim();
-    const price = document.getElementById("foodPrice").value;
-    const category = document.getElementById("foodCategory").value;
-    const time = document.getElementById("foodTime").value;
-    const imageInput = document.getElementById("foodImage");
-    const image = imageInput && imageInput.files[0] ? await readImageFile(imageInput.files[0]) : "";
-    const description = document.getElementById("foodDescription").value.trim();
+async function saveMenuItemToFirebase(item) {
 
-    if (!name) {
-        alert("Please enter food name.");
-        return;
-    }
-    if (!price || Number(price) <= 0) {
-        alert("Please enter a valid price.");
-        return;
+    if (!item || !item.id) {
+        throw new Error("Invalid menu item");
     }
 
-    if (editingFoodId !== null) {
-        const index = menuItems.findIndex(item => item.id === editingFoodId);
-        if (index !== -1) {
-            menuItems[index] = {
-                ...menuItems[index],
-                name: name,
-                price: Number(price),
-                category: category,
-                preparationTime: Number(time) || 20,
-                image: image || menuItems[index].image,
-                description: description
-            };
-        }
-    } else {
-        const newFood = {
-            id: Date.now(),
-            name: name,
-            price: Number(price),
-            category: category,
-            preparationTime: Number(time) || 20,
-            image: image,
-            description: description,
-            available: true,
-            createdAt: new Date().toISOString()
-        };
-        menuItems.push(newFood);
+    await database
+        .ref("pistaHouse/menuItems/" + item.id)
+        .set(item);
 
-      try {
-
-    await saveMenuItemToFirebase(newFood);
-
-} catch (e) {
-
-    alert(
-        "Firebase Error:\n" +
-        (e.code || "Unknown Error") +
-        "\n\n" +
-        (e.message || e)
+    localStorage.setItem(
+        "menuItems",
+        JSON.stringify(menuItems)
     );
 
-    console.error("FULL FIREBASE ERROR:", e);
+    console.log(
+        "✅ Menu item saved:",
+        item.name
+    );
+}
 
-    return;
-      }
+
+async function updateMenuItemToFirebase(item) {
+
+    if (!item || !item.id) {
+        throw new Error("Invalid menu item");
     }
 
-    
-    
-    displayMenu();
-    closeFoodForm();
+    await database
+        .ref("pistaHouse/menuItems/" + item.id)
+        .update(item);
 
-    showToast(editingFoodId !== null ? "Food item updated successfully! ✅" : "Food item added successfully! ✅");
+    localStorage.setItem(
+        "menuItems",
+        JSON.stringify(menuItems)
+    );
+
+    console.log(
+        "✅ Menu item updated:",
+        item.name
+    );
 }
+
+async function saveMenuToFirebase() {
+
+    if (!Array.isArray(menuItems)) {
+        menuItems = [];
+    }
+
+    const updates = {};
+
+    menuItems.forEach(function(item) {
+
+        if (!item || !item.id) {
+            return;
+        }
+
+        updates[
+            "pistaHouse/menuItems/" + item.id
+        ] = item;
+
+    });
+
+    if (Object.keys(updates).length > 0) {
+
+        await database
+            .ref()
+            .update(updates);
+
+    }
+
+    localStorage.setItem(
+        "menuItems",
+        JSON.stringify(menuItems)
+    );
+
+    console.log(
+        "✅ All menu items saved:",
+        menuItems.length
+    );
+
+}
+            
+async function saveFood() {
+
+    try {
+
+        const name =
+            document.getElementById("foodName").value.trim();
+
+        const price =
+            document.getElementById("foodPrice").value;
+
+        const category =
+            document.getElementById("foodCategory").value;
+
+        const time =
+            document.getElementById("foodTime").value;
+
+        const imageInput =
+            document.getElementById("foodImage");
+
+        const description =
+            document
+                .getElementById("foodDescription")
+                .value
+                .trim();
+
+        // Validation
+        if (!name) {
+            alert("Please enter food name.");
+            return;
+        }
+
+        if (!price || Number(price) <= 0) {
+            alert("Please enter a valid price.");
+            return;
+        }
+
+        // ==========================
+        // EDIT EXISTING ITEM
+        // ==========================
+
+        if (editingFoodId !== null) {
+
+            const index =
+                menuItems.findIndex(
+                    item =>
+                        String(item.id) ===
+                        String(editingFoodId)
+                );
+
+            if (index === -1) {
+                alert("Food item not found.");
+                return;
+            }
+
+            let image =
+                menuItems[index].image || "";
+
+            if (
+                imageInput &&
+                imageInput.files &&
+                imageInput.files[0]
+            ) {
+
+                image =
+                    await readImageFile(
+                        imageInput.files[0]
+                    );
+
+            }
+
+            const updatedItem = {
+
+                ...menuItems[index],
+
+                name: name,
+
+                price: Number(price),
+
+                category: category,
+
+                preparationTime:
+                    Number(time) || 20,
+
+                image: image,
+
+                description: description,
+
+                updatedAt:
+                    new Date().toISOString()
+
+            };
+
+            menuItems[index] = updatedItem;
+
+            // Firebase update
+            await updateMenuItemToFirebase(
+                updatedItem
+            );
+
+            localStorage.setItem(
+                "menuItems",
+                JSON.stringify(menuItems)
+            );
+
+            displayMenu();
+            closeFoodForm();
+
+            showToast(
+                "Food item updated successfully! ✅"
+            );
+
+            return;
+        }
+
+
+        // ==========================
+        // ADD NEW ITEM
+        // ==========================
+
+        let image = "";
+
+        if (
+            imageInput &&
+            imageInput.files &&
+            imageInput.files[0]
+        ) {
+
+            image =
+                await readImageFile(
+                    imageInput.files[0]
+                );
+
+        }
+
+        const newFood = {
+
+            id: Date.now(),
+
+            name: name,
+
+            price: Number(price),
+
+            category: category,
+
+            preparationTime:
+                Number(time) || 20,
+
+            image: image,
+
+            description: description,
+
+            available: true,
+
+            createdAt:
+                new Date().toISOString()
+
+        };
+
+
+        // Add to array
+        menuItems.push(newFood);
+
+
+        // Save to Firebase
+        await saveMenuItemToFirebase(
+            newFood
+        );
+
+
+        // Local cache
+        localStorage.setItem(
+            "menuItems",
+            JSON.stringify(menuItems)
+        );
+
+
+        // Refresh UI
+        displayMenu();
+        updateDashboard();
+
+        closeFoodForm();
+
+        showToast(
+            "Food item added successfully! ✅"
+        );
+
+
+        console.log(
+            "✅ New food added:",
+            newFood.name
+        );
+
+    } catch (error) {
+
+        console.error(
+            "❌ SAVE FOOD ERROR:",
+            error
+        );
+
+        alert(
+            "Food save failed!\n\n" +
+            (error.message || error)
+        );
+
+    }
+
+}
+    
+    
+    
 
 
 
@@ -1255,35 +1803,132 @@ function editFood(id) {
     window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-function deleteFood(id) {
-    const item = menuItems.find(food => food.id === id);
+async function deleteFood(id) {
+
+    const item =
+        menuItems.find(
+            food =>
+                String(food.id) === String(id)
+        );
+
     if (!item) return;
 
-    if (!confirm(`Delete "${item.name}"?`)) return;
+    if (
+        !confirm(
+            `Delete "${item.name}"?`
+        )
+    ) {
+        return;
+    }
 
-    menuItems = menuItems.filter(food => food.id !== id);
-    localStorage.setItem("menuItems", JSON.stringify(menuItems));
-    displayMenu();
-    updateDashboard();
+    try {
+
+        // Firebase delete
+        await database
+            .ref(
+                "pistaHouse/menuItems/" + id
+            )
+            .remove();
+
+        // Local delete
+        menuItems =
+            menuItems.filter(
+                food =>
+                    String(food.id) !==
+                    String(id)
+            );
+
+        localStorage.setItem(
+            "menuItems",
+            JSON.stringify(menuItems)
+        );
+
+        displayMenu();
+        updateDashboard();
+
+        showToast(
+            "Food item deleted successfully! 🗑️"
+        );
+
+    } catch (error) {
+
+        console.error(
+            "❌ Delete food error:",
+            error
+        );
+
+        alert(
+            "Delete failed!\n\n" +
+            (error.message || error)
+        );
+
+    }
+
 }
 
-function toggleFoodAvailability(id) {
-    const item = menuItems.find(food => food.id === id);
+
+async function toggleFoodAvailability(id) {
+
+    const item =
+        menuItems.find(
+            food =>
+                String(food.id) === String(id)
+        );
+
     if (!item) return;
 
-    item.available = item.available === false ? true : false;
-    localStorage.setItem("menuItems", JSON.stringify(menuItems));
-    displayMenu();
+    try {
+
+        item.available =
+            item.available === false
+                ? true
+                : false;
+
+        item.updatedAt =
+            new Date().toISOString();
+
+        // Firebase update
+        await database
+            .ref(
+                "pistaHouse/menuItems/" + id
+            )
+            .update({
+                available: item.available,
+                updatedAt: item.updatedAt
+            });
+
+        // Local cache
+        localStorage.setItem(
+            "menuItems",
+            JSON.stringify(menuItems)
+        );
+
+        displayMenu();
+
+        showToast(
+            item.available
+                ? "Food marked Available 🟢"
+                : "Food marked Unavailable 🔴"
+        );
+
+    } catch (error) {
+
+        console.error(
+            "❌ Availability update error:",
+            error
+        );
+
+        alert(
+            "Availability update failed!\n\n" +
+            (error.message || error)
+        );
+
+    }
+
 }
 
 function displayOrders() {
-
-    const ordersList =
-        document.getElementById("ordersList");
-
-    if (!ordersList) return;
-
-
+  
     // ------------------------------------------
     // FILTER ORDERS
     // ------------------------------------------
@@ -1740,6 +2385,14 @@ function displayTables() {
     `;
 }
 
+  function closeQRPreview() {
+    const modal = document.getElementById("qrPreviewModal");
+
+    if (modal) {
+        modal.classList.remove("show");
+    }
+  }
+  
 function downloadQR() {
     const qrImage = "qr.png";
     const link = document.createElement("a");
