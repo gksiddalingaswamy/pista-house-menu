@@ -18,7 +18,40 @@ document.addEventListener("DOMContentLoaded", function () {
     loadCart();
     loadMenu();
     setupSearch();
-    checkCustomerOrderStatus();
+  startOrderStatusListener();
+  requestNotificationPermission();
+
+    // RESTORE CUSTOMER DETAILS
+    try {
+
+        const savedPhone =
+            localStorage.getItem("customerPhone") || "";
+
+        const savedName =
+            localStorage.getItem("customerName") || "";
+
+        const phoneInput =
+            document.getElementById("customerPhone");
+
+        const nameInput =
+            document.getElementById("customerName");
+
+        if (phoneInput && savedPhone) {
+            phoneInput.value = savedPhone;
+        }
+
+        if (nameInput && savedName) {
+            nameInput.value = savedName;
+        }
+
+    } catch (error) {
+
+        console.error(
+            "Customer details restore error:",
+            error
+        );
+
+    }
 
 });
 
@@ -905,6 +938,10 @@ function decreaseCartItem(itemId) {
 // OPEN CHECKOUT
 // ======================================================
 
+// ======================================================
+// OPEN CHECKOUT
+// ======================================================
+
 function openCheckout() {
 
     if (
@@ -919,6 +956,47 @@ function openCheckout() {
 
 
     closeCart();
+
+
+    // CLEAR PREVIOUS ORDER DETAILS
+    // Every new order starts with fresh fields.
+
+    const nameInput =
+        document.getElementById(
+            "customerName"
+        );
+
+    const phoneInput =
+        document.getElementById(
+            "customerPhone"
+        );
+
+    const tableInput =
+        document.getElementById(
+            "checkoutTable"
+        );
+
+    const noteInput =
+        document.getElementById(
+            "customerNote"
+        );
+
+
+    if (nameInput) {
+        nameInput.value = "";
+    }
+
+    if (phoneInput) {
+        phoneInput.value = "";
+    }
+
+    if (tableInput) {
+        tableInput.value = "";
+    }
+
+    if (noteInput) {
+        noteInput.value = "";
+    }
 
 
     const modal =
@@ -938,7 +1016,6 @@ function openCheckout() {
     modal.classList.remove("hidden");
 
 }
-
 
 // ======================================================
 // CLOSE CHECKOUT
@@ -995,6 +1072,9 @@ async function placeOrder() {
         phoneInput
             ? phoneInput.value.trim()
             : "";
+
+  localStorage.setItem("customerPhone", customerPhone);
+localStorage.setItem("customerName", customerName);
 
 
     const tableNumber =
@@ -1189,20 +1269,27 @@ const estimatedTime = cart.reduce(function(maxTime, item) {
     }
 
 
-    // IMPORTANT:
-    // Keep only latest 20 orders.
-    // This prevents localStorage becoming huge.
-
-    if (orders.length >= 20) {
-
-        orders =
-            orders.slice(-19);
-
-    }
-
-
     orders.push(order);
 
+
+// SAVE ORDER TO LOCAL CACHE FIRST
+// This makes My Orders load instantly.
+
+try {
+
+    localStorage.setItem(
+        "orders",
+        JSON.stringify(orders)
+    );
+
+} catch (cacheError) {
+
+    console.error(
+        "❌ Local Order Cache Save Error:",
+        cacheError
+    );
+
+}
 
 // SAVE ORDER TO FIREBASE
 
@@ -1230,6 +1317,7 @@ try {
 
     return;
 }
+
 
 
     // CURRENT ORDER
@@ -1427,34 +1515,53 @@ function showOrderSuccess(order) {
 
 function closeSuccess() {
 
+    const successModal =
+        document.getElementById("successModal");
+
+    const checkoutModal =
+        document.getElementById("checkoutModal");
+
+    if (successModal) {
+        successModal.classList.add("hidden");
+    }
+
+    if (checkoutModal) {
+        checkoutModal.classList.add("hidden");
+    }
+
+    window.scrollTo({
+        top: 0,
+        behavior: "smooth"
+    });
+} 
+
+
+// ==========================================
+// MY ORDERS - COMPLETE NEW VERSION
+// ==========================================
+
+
+// ==========================================
+// OPEN MY ORDERS
+// ==========================================
+
+async function openMyOrders() {
+
     const modal =
-        document.getElementById(
-            "successModal"
-        );
-
-    if (!modal) return;
-
-    modal.classList.add("hidden");
-  
-}                         
-
-
-// ==========================================
-// MY ORDERS
-// ==========================================
-
-function openMyOrders() {
-
-    const modal = document.getElementById("myOrdersModal");
+        document.getElementById("myOrdersModal");
 
     if (!modal) {
-        console.error("My Orders modal not found");
+
+        console.error(
+            "❌ My Orders modal not found"
+        );
+
         return;
     }
 
     modal.classList.remove("hidden");
 
-    displayMyOrders();
+    await displayMyOrders();
 }
 
 
@@ -1464,7 +1571,8 @@ function openMyOrders() {
 
 function closeMyOrders() {
 
-    const modal = document.getElementById("myOrdersModal");
+    const modal =
+        document.getElementById("myOrdersModal");
 
     if (!modal) return;
 
@@ -1473,165 +1581,730 @@ function closeMyOrders() {
 
 
 // ==========================================
-// DISPLAY ORDER HISTORY
+// GET SAVED CUSTOMER PHONE
 // ==========================================
 
-function displayMyOrders() {
+function getSavedCustomerPhone() {
 
-    const container = document.getElementById("myOrdersList");
+    let phone = "";
 
-    if (!container) return;
+    try {
 
-    let orders = [];
+        const phoneInput =
+            document.getElementById(
+                "customerPhone"
+            );
+
+        if (phoneInput) {
+
+            phone =
+                phoneInput.value.trim();
+
+        }
+
+
+        // If input is empty,
+        // get phone from localStorage.
+
+        if (!phone) {
+
+            phone =
+                localStorage.getItem(
+                    "customerPhone"
+                ) || "";
+
+        }
+
+    } catch (error) {
+
+        console.error(
+            "❌ Customer phone error:",
+            error
+        );
+
+    }
+
+    return String(phone).trim();
+}
+
+
+// ==========================================
+// LOAD LOCAL ORDERS
+// ==========================================
+
+function loadLocalOrders() {
 
     try {
 
         const savedOrders =
             localStorage.getItem("orders");
 
-        if (savedOrders) {
-            orders = JSON.parse(savedOrders);
+        if (!savedOrders) {
+
+            return [];
+
         }
+
+
+        const parsedOrders =
+            JSON.parse(savedOrders);
+
+
+        if (!Array.isArray(parsedOrders)) {
+
+            return [];
+
+        }
+
+
+        return parsedOrders.filter(
+            function(order) {
+
+                return (
+                    order &&
+                    order.id
+                );
+
+            }
+        );
 
     } catch (error) {
 
-        console.error("Order history error:", error);
+        console.error(
+            "❌ Local order loading error:",
+            error
+        );
 
-        orders = [];
+        return [];
+
+    }
+
+}
+
+
+// ==========================================
+// DISPLAY MY ORDERS
+// ==========================================
+
+async function displayMyOrders() {
+
+    const container =
+        document.getElementById(
+            "myOrdersList"
+        );
+
+    if (!container) {
+
+        console.error(
+            "❌ myOrdersList not found"
+        );
+
+        return;
     }
 
 
-    if (!Array.isArray(orders) || orders.length === 0) {
+    // ==========================================
+    // LOAD THIS DEVICE'S OWN ORDERS
+    // (phone number no longer needed)
+    // ==========================================
+
+    let localOrders =
+        loadLocalOrders();
+
+
+    if (localOrders.length > 0) {
+
+        sortOrdersNewestFirst(
+            localOrders
+        );
+
+        renderMyOrders(
+            localOrders,
+            container
+        );
+
+    } else {
 
         container.innerHTML = `
+
             <div class="no-orders">
 
                 <div class="no-orders-icon">
                     🛒
                 </div>
 
-                <h3>No orders yet</h3>
+                <h3>
+                    No orders yet
+                </h3>
 
                 <p>
                     Your orders will appear here.
                 </p>
 
             </div>
+
         `;
 
         return;
     }
 
 
-    container.innerHTML = orders
-        .slice()
-        .reverse()
-        .map(function(order) {
+    // ==========================================
+    // THIS DEVICE'S ORDER IDs
+    // ==========================================
 
-            const name =
-                order.customerName || "Customer";
-
-            const table =
-                order.table || "-";
-
-            const status =
-                order.status || "Received";
-
-            const total =
-                Number(order.total || 0);
+    const localOrderIds =
+        new Set(
+            localOrders.map(function (order) {
+                return String(order.id);
+            })
+        );
 
 
-            let itemsHTML = "";
+    // ==========================================
+    // LOAD LIVE STATUS FROM FIREBASE
+    // (only for orders this device placed)
+    // ==========================================
+
+    let firebaseOrders = [];
 
 
-            if (
-                Array.isArray(order.items) &&
-                order.items.length > 0
-            ) {
+    try {
 
-                itemsHTML = order.items
-                    .map(function(item) {
+        const snapshot =
+            await database
+                .ref("pistaHouse/orders")
+                .once("value");
 
-                        const itemName =
-                            item.name || "Food";
 
-                        const quantity =
-                            Number(item.quantity || 1);
+        const data =
+            snapshot.val();
 
-                        const price =
-                            Number(item.price || 0);
 
-                        return `
-                            <div class="my-order-item">
+        if (
+            data &&
+            typeof data === "object"
+        ) {
 
-                                <span>
-                                    ${itemName}
-                                </span>
+            Object.values(data).forEach(
+                function(order) {
 
-                                <span>
-                                    × ${quantity}
-                                </span>
+                    if (!order || !order.id) return;
 
-                                <strong>
-                                    ₹${price * quantity}
-                                </strong>
+                    if (
+                        localOrderIds.has(
+                            String(order.id)
+                        )
+                    ) {
 
-                            </div>
-                        `;
+                        firebaseOrders.push(
+                            order
+                        );
 
-                    })
-                    .join("");
+                    }
+
+                }
+            );
+
+        }
+
+    } catch (error) {
+
+        console.error(
+            "❌ Firebase My Orders Error:",
+            error
+        );
+
+        return;
+    }
+
+
+    // ==========================================
+    // MERGE LOCAL + FIREBASE
+    // ==========================================
+
+    const orderMap = {};
+
+    localOrders.forEach(
+        function(order) {
+
+            if (order && order.id) {
+
+                orderMap[String(order.id)] = order;
 
             }
 
+        }
+    );
 
-            return `
+    firebaseOrders.forEach(
+        function(order) {
 
-                <div class="my-order-card">
+            if (order && order.id) {
 
-                    <div class="my-order-header">
+                orderMap[String(order.id)] = order;
 
-                        <div class="my-order-name">
-                            📦 ${name}'s Order
-                        </div>
+            }
 
-                        <div class="my-order-status">
-                            ${status}
-                        </div>
+        }
+    );
 
-                    </div>
+    const allCustomerOrders =
+        Object.values(orderMap);
 
+    sortOrdersNewestFirst(
+        allCustomerOrders
+    );
 
-                    <div class="my-order-table">
-                        🪑 Table: <strong>${table}</strong>
-                    </div>
+    saveCompleteOrderHistory(
+        firebaseOrders
+    );
 
+    if (allCustomerOrders.length > 0) {
 
-                    <div class="my-order-items">
+        renderMyOrders(
+            allCustomerOrders,
+            container
+        );
 
-                        ${itemsHTML}
+    } else {
 
-                    </div>
+        container.innerHTML = `
 
+            <div class="no-orders">
 
-                    <div class="my-order-total">
-
-                        <span>
-                            Total
-                        </span>
-
-                        <strong>
-                            ₹${total}
-                        </strong>
-
-                    </div>
-
+                <div class="no-orders-icon">
+                    🛒
                 </div>
 
-            `;
+                <h3>
+                    No orders yet
+                </h3>
 
-        })
-        .join("");
+                <p>
+                    Your orders will appear here.
+                </p>
+
+            </div>
+
+        `;
+
+    }
+
+}
+
+
+
+// ==========================================
+// SORT ORDERS
+// ==========================================
+
+function sortOrdersNewestFirst(
+    orders
+) {
+
+    orders.sort(
+        function(a, b) {
+
+            const dateA =
+                new Date(
+                    a.createdAt || 0
+                ).getTime();
+
+
+            const dateB =
+                new Date(
+                    b.createdAt || 0
+                ).getTime();
+
+
+            return dateB - dateA;
+
+        }
+    );
+
+}
+
+
+// ==========================================
+// SAVE COMPLETE ORDER HISTORY
+// ==========================================
+
+function saveCompleteOrderHistory(
+    firebaseOrders
+) {
+
+    try {
+
+        const existingOrders =
+            loadLocalOrders();
+
+
+        const orderMap = {};
+
+
+        // ------------------------------------------
+        // KEEP ALL OLD LOCAL ORDERS
+        // ------------------------------------------
+
+        existingOrders.forEach(
+            function(order) {
+
+                if (
+                    order &&
+                    order.id
+                ) {
+
+                    orderMap[
+                        String(order.id)
+                    ] = order;
+
+                }
+
+            }
+        );
+
+
+        // ------------------------------------------
+        // ADD NEW FIREBASE ORDERS
+        // ------------------------------------------
+
+        firebaseOrders.forEach(
+            function(order) {
+
+                if (
+                    order &&
+                    order.id
+                ) {
+
+                    orderMap[
+                        String(order.id)
+                    ] = order;
+
+                }
+
+            }
+        );
+
+
+        // ------------------------------------------
+        // CREATE COMPLETE HISTORY
+        // ------------------------------------------
+
+        const completeHistory =
+            Object.values(orderMap);
+
+
+        sortOrdersNewestFirst(
+            completeHistory
+        );
+
+
+        // ------------------------------------------
+        // SAVE ALL ORDERS
+        // ------------------------------------------
+
+        localStorage.setItem(
+            "orders",
+            JSON.stringify(
+                completeHistory
+            )
+        );
+
+
+        console.log(
+            "✅ Complete order history saved:",
+            completeHistory.length
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "❌ Order history save error:",
+            error
+        );
+
+    }
+
+}
+
+
+// ==========================================
+// RENDER MY ORDERS
+// ==========================================
+
+function renderMyOrders(
+    orders,
+    container
+) {
+
+    if (
+        !Array.isArray(orders) ||
+        orders.length === 0
+    ) {
+
+        container.innerHTML = `
+
+            <div class="no-orders">
+
+                <div class="no-orders-icon">
+                    🛒
+                </div>
+
+                <h3>
+                    No orders yet
+                </h3>
+
+                <p>
+                    Your orders will appear here.
+                </p>
+
+            </div>
+
+        `;
+
+        return;
+
+    }
+
+
+    // ==========================================
+    // NEWEST ORDER FIRST
+    // ==========================================
+
+    sortOrdersNewestFirst(
+        orders
+    );
+
+
+    // ==========================================
+    // CREATE ORDER CARDS
+    // ==========================================
+
+    container.innerHTML =
+        orders.map(
+            function(order) {
+
+                const name =
+                    order.customerName ||
+                    "Customer";
+
+
+                const table =
+                    order.table ||
+                    "-";
+
+
+                const status =
+                    order.status ||
+                    "Received";
+
+
+                const total =
+                    Number(
+                        order.total || 0
+                    );
+
+
+                let itemsHTML = "";
+
+
+                // ==================================
+                // FOOD ITEMS
+                // ==================================
+
+                if (
+                    Array.isArray(
+                        order.items
+                    ) &&
+                    order.items.length > 0
+                ) {
+
+                    itemsHTML =
+                        order.items.map(
+                            function(item) {
+
+                                const itemName =
+                                    item.name ||
+                                    "Food";
+
+
+                                const quantity =
+                                    Number(
+                                        item.quantity ||
+                                        1
+                                    );
+
+
+                                const price =
+                                    Number(
+                                        item.price ||
+                                        0
+                                    );
+
+
+                                const itemTotal =
+                                    price *
+                                    quantity;
+
+
+                                return `
+
+                                    <div class="my-order-item">
+
+                                        <span>
+                                            ${escapeHTML(
+                                                String(
+                                                    itemName
+                                                )
+                                            )}
+                                        </span>
+
+                                        <span>
+                                            × ${quantity}
+                                        </span>
+
+                                        <strong>
+                                            ₹${itemTotal}
+                                        </strong>
+
+                                    </div>
+
+                                `;
+
+                            }
+                        ).join("");
+
+                }
+
+
+                // ==================================
+                // ORDER DATE
+                // ==================================
+
+                let orderDate = "";
+
+                if (
+                    order.createdAt
+                ) {
+
+                    try {
+
+                        const date =
+                            new Date(
+                                order.createdAt
+                            );
+
+
+                        orderDate =
+                            date.toLocaleString(
+                                "en-IN",
+                                {
+                                    day: "2-digit",
+                                    month: "short",
+                                    year: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit"
+                                }
+                            );
+
+                    } catch (error) {
+
+                        orderDate = "";
+
+                    }
+
+                }
+
+
+                // ==================================
+                // ORDER CARD
+                // ==================================
+
+                return `
+
+                    <div class="my-order-card">
+
+                        <div class="my-order-header">
+
+                            <div class="my-order-name">
+
+                                📦
+                                ${escapeHTML(
+                                    String(name)
+                                )}'s Order
+
+                            </div>
+
+                            <div class="my-order-status">
+
+                                ${escapeHTML(
+                                    String(status)
+                                )}
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="my-order-table">
+
+                            🪑 Table:
+
+                            <strong>
+
+                                ${escapeHTML(
+                                    String(table)
+                                )}
+
+                            </strong>
+
+                        </div>
+
+
+                        ${
+                            orderDate
+                                ? `
+                                    <div class="my-order-date">
+
+                                        🕐
+                                        ${escapeHTML(
+                                            orderDate
+                                        )}
+
+                                    </div>
+                                `
+                                : ""
+                        }
+
+
+                        <div class="my-order-items">
+
+                            ${itemsHTML}
+
+                        </div>
+
+
+                        <div class="my-order-total">
+
+                            <span>
+                                Total
+                            </span>
+
+                            <strong>
+                                ₹${total}
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+                `;
+
+            }
+        ).join("");
+
 }
 
 
@@ -1647,9 +2320,12 @@ function deleteOrderHistory() {
 
     if (!savedOrders) {
 
-        alert("No order history to delete.");
+        alert(
+            "No order history to delete."
+        );
 
         return;
+
     }
 
 
@@ -1660,19 +2336,37 @@ function deleteOrderHistory() {
 
 
     if (!confirmDelete) {
+
         return;
+
     }
 
 
-    localStorage.removeItem("orders");
+    // Delete local history
 
-    localStorage.removeItem("currentOrderId");
+    localStorage.removeItem(
+        "orders"
+    );
 
 
-    if (typeof currentOrderId !== "undefined") {
+    localStorage.removeItem(
+        "currentOrderId"
+    );
+
+
+    // Reset current order
+
+    if (
+        typeof currentOrderId !==
+        "undefined"
+    ) {
+
         currentOrderId = null;
+
     }
 
+
+    // Refresh My Orders
 
     displayMyOrders();
 
@@ -1680,45 +2374,55 @@ function deleteOrderHistory() {
     alert(
         "Order history deleted successfully! ✅"
     );
+
 }
+
 
 // ==========================================
 // MY ORDERS BUTTON EVENTS
 // ==========================================
 
-document.addEventListener("DOMContentLoaded", function() {
+document.addEventListener(
+    "DOMContentLoaded",
+    function() {
 
-    const closeButton =
-        document.getElementById(
-            "closeMyOrdersButton"
-        );
-
-    const deleteButton =
-        document.getElementById(
-            "deleteHistoryButton"
-        );
+        const closeButton =
+            document.getElementById(
+                "closeMyOrdersButton"
+            );
 
 
-    if (closeButton) {
+        const deleteButton =
+            document.getElementById(
+                "deleteHistoryButton"
+            );
 
-        closeButton.addEventListener(
-            "click",
-            closeMyOrders
-        );
+
+        // Close button
+
+        if (closeButton) {
+
+            closeButton.addEventListener(
+                "click",
+                closeMyOrders
+            );
+
+        }
+
+
+        // Delete button
+
+        if (deleteButton) {
+
+            deleteButton.addEventListener(
+                "click",
+                deleteOrderHistory
+            );
+
+        }
 
     }
-
-
-    if (deleteButton) {
-
-        deleteButton.addEventListener(
-            "click",
-            deleteOrderHistory
-        );
-
-    }
-
-});
+);
 
 // =============================
 // LOCK BACKGROUND WHEN MODAL OPENS
@@ -1750,5 +2454,262 @@ function callRestaurant() {
         "tel:" + phoneNumber,
         "_self"
     );
+
+}
+
+  // ==========================================
+// LIVE ORDER STATUS NOTIFICATIONS
+// (Admin status change -> Customer notification)
+// ==========================================
+
+function showOrderStatusToast(message) {
+
+    let toast = document.getElementById("orderStatusToast");
+
+    if (!toast) {
+
+        toast = document.createElement("div");
+        toast.id = "orderStatusToast";
+        toast.style.position = "fixed";
+        toast.style.bottom = "24px";
+        toast.style.left = "50%";
+        toast.style.transform = "translateX(-50%)";
+        toast.style.background = "#1a5632";
+        toast.style.color = "#fff";
+        toast.style.padding = "14px 22px";
+        toast.style.borderRadius = "10px";
+        toast.style.fontSize = "15px";
+        toast.style.fontWeight = "600";
+        toast.style.boxShadow = "0 4px 14px rgba(0,0,0,0.25)";
+        toast.style.zIndex = "9999";
+        toast.style.opacity = "0";
+        toast.style.transition = "opacity 0.3s ease";
+        toast.style.textAlign = "center";
+        toast.style.maxWidth = "85%";
+        document.body.appendChild(toast);
+
+    }
+
+    toast.textContent = message;
+    toast.style.opacity = "1";
+
+    clearTimeout(toast._hideTimeout);
+    toast._hideTimeout = setTimeout(function () {
+        toast.style.opacity = "0";
+    }, 4000);
+
+}
+
+function startOrderStatusListener() {
+
+    try {
+
+        database.ref("pistaHouse/orders").on("value", function (snapshot) {
+
+            const data = snapshot.val();
+
+            if (!data || typeof data !== "object") return;
+
+            let localOrders = loadLocalOrders();
+
+            if (!localOrders.length) return;
+
+            let changed = false;
+
+            localOrders = localOrders.map(function (localOrder) {
+
+                const liveOrder = data[localOrder.id];
+
+                if (
+                    liveOrder &&
+                    liveOrder.status &&
+                    liveOrder.status !== localOrder.status
+                ) {
+
+                    showOrderStatusToast(
+                        "📦 Your order is now: " + liveOrder.status
+                    );
+
+                  showDeviceNotification(
+                        "Pista House Ballari",
+                        "Your order is now: " + liveOrder.status
+                    );
+
+                    changed = true;
+
+                    return Object.assign(
+                        {},
+                        localOrder,
+                        { status: liveOrder.status }
+                    );
+
+                }
+
+                return localOrder;
+
+            });
+
+            if (changed) {
+
+                try {
+
+                    localStorage.setItem(
+                        "orders",
+                        JSON.stringify(localOrders)
+                    );
+
+                } catch (error) {
+
+                    console.error(
+                        "❌ Order status cache update error:",
+                        error
+                    );
+
+                }
+
+                const modal =
+                    document.getElementById("myOrdersModal");
+
+                if (
+                    modal &&
+                    !modal.classList.contains("hidden")
+                ) {
+
+                    displayMyOrders();
+
+                }
+
+            }
+
+        });
+
+    } catch (error) {
+
+        console.error(
+            "❌ Order Status Listener Error:",
+            error
+        );
+
+    }
+
+}
+
+  // ==========================================
+// SYSTEM (DEVICE) NOTIFICATION PERMISSION
+// ==========================================
+
+function requestNotificationPermission() {
+
+  function showNotificationPromptButton() {
+
+    try {
+
+        if (!("Notification" in window)) return;
+
+        if (Notification.permission !== "default") return;
+
+        if (document.getElementById("notifyPromptBtn")) return;
+
+        const btn = document.createElement("button");
+        btn.id = "notifyPromptBtn";
+        btn.textContent = "🔔 Get order updates on your phone";
+        btn.style.position = "fixed";
+        btn.style.bottom = "20px";
+        btn.style.left = "50%";
+        btn.style.transform = "translateX(-50%)";
+        btn.style.background = "#1a5632";
+        btn.style.color = "#fff";
+        btn.style.border = "none";
+        btn.style.padding = "12px 20px";
+        btn.style.borderRadius = "30px";
+        btn.style.fontSize = "14px";
+        btn.style.fontWeight = "600";
+        btn.style.boxShadow = "0 4px 14px rgba(0,0,0,0.3)";
+        btn.style.zIndex = "9998";
+
+        btn.onclick = function () {
+
+            Notification.requestPermission().then(function () {
+                btn.remove();
+            });
+
+        };
+
+        document.body.appendChild(btn);
+
+    } catch (error) {
+
+        console.error(
+            "❌ Notification Prompt Button Error:",
+            error
+        );
+
+    }
+
+  }
+  
+    try {
+
+        if (!("Notification" in window)) {
+
+            console.warn("⚠️ This browser does not support notifications.");
+            return;
+        }
+
+        if (Notification.permission === "default") {
+
+    showNotificationPromptButton();
+
+        }
+
+    } catch (error) {
+
+        console.error(
+            "❌ Notification Permission Error:",
+            error
+        );
+
+    }
+
+}
+
+
+// ==========================================
+// SHOW DEVICE NOTIFICATION
+// ==========================================
+
+function showDeviceNotification(title, body) {
+
+    try {
+
+        if (
+            !("Notification" in window) ||
+            Notification.permission !== "granted"
+        ) {
+
+            return;
+        }
+
+        const notification = new Notification(title, {
+            body: body,
+            icon: "logo.png",
+            badge: "logo.png",
+            tag: "pista-house-order-status",
+            renotify: true
+        });
+
+        notification.onclick = function () {
+            window.focus();
+            notification.close();
+        };
+
+    } catch (error) {
+
+        console.error(
+            "❌ Device Notification Error:",
+            error
+        );
+
+    }
 
 }

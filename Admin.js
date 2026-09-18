@@ -3,6 +3,161 @@
 // ------------------------------------------
 let menuItems = [];
 let orders = [];
+let dashboardOrderFilter = "all";
+
+// ==========================================
+// ADMIN PUSH NOTIFICATIONS
+// ==========================================
+
+let adminMessaging = null;
+
+// Firebase Console ನಲ್ಲಿ Generate ಮಾಡಿದ
+// Web Push public VAPID key ಇಲ್ಲಿ ಹಾಕಬೇಕು
+const ADMIN_VAPID_KEY =
+    "BFLHCCqqLUmJJGp2jX8llp-G8ljiApNJLRMbENCOQfbul_v1kdvpIRc4-sgQKjfisW3XCSm4EluulrGKMbzHoLk";
+
+async function setupAdminPushNotifications() {
+
+    try {
+
+        // Browser notification support
+        if (!("Notification" in window)) {
+            console.warn("⚠️ Browser notifications not supported.");
+            return;
+        }
+
+        // Service Worker support
+        if (!("serviceWorker" in navigator)) {
+            console.warn("⚠️ Service Worker not supported.");
+            return;
+        }
+
+        // Ask permission
+        if (Notification.permission === "default") {
+            const permission =
+                await Notification.requestPermission();
+
+            if (permission !== "granted") {
+                console.warn("⚠️ Notification permission not granted.");
+                return;
+            }
+        }
+
+        if (Notification.permission !== "granted") {
+            return;
+        }
+
+        // Firebase Messaging
+        if (!firebase.messaging) {
+            console.error(
+                "❌ Firebase Messaging SDK not loaded."
+            );
+            return;
+        }
+
+        // Register Service Worker
+        const registration =
+            await navigator.serviceWorker.register(
+                "firebase-messaging-sw.js"
+            );
+
+        console.log(
+            "✅ Firebase Messaging Service Worker registered."
+        );
+
+        // Create messaging instance
+        adminMessaging = firebase.messaging();
+
+        // Get FCM registration token
+        const token =
+            await adminMessaging.getToken({
+                vapidKey: ADMIN_VAPID_KEY,
+                serviceWorkerRegistration: registration
+            });
+
+        if (!token) {
+            console.warn(
+                "⚠️ FCM token not available."
+            );
+            return;
+        }
+
+        console.log(
+            "✅ Admin FCM Token:",
+            token
+        );
+
+        // Save admin device token
+        await database
+            .ref("pistaHouse/adminNotificationToken")
+            .set({
+                token: token,
+                updatedAt: new Date().toISOString()
+            });
+
+        console.log(
+            "✅ Admin notification token saved."
+        );
+
+        // Foreground notification
+        adminMessaging.onMessage(function(payload) {
+
+            console.log(
+                "🔔 New FCM message:",
+                payload
+            );
+
+            const title =
+                payload.notification?.title ||
+                "Pista House Ballari";
+
+            const body =
+                payload.notification?.body ||
+                "New order received!";
+
+            showToast(
+                "🔔 " + body
+            );
+
+            // Browser notification while page is open
+            if (
+                Notification.permission === "granted"
+            ) {
+
+                try {
+
+                    new Notification(
+                        title,
+                        {
+                            body: body,
+                            icon: "logo.png",
+                            tag: "pista-house-new-order"
+                        }
+                    );
+
+                } catch (error) {
+
+                    console.error(
+                        "❌ Foreground notification error:",
+                        error
+                    );
+
+                }
+
+            }
+
+        });
+
+    } catch (error) {
+
+        console.error(
+            "❌ Admin Push Notification Setup Error:",
+            error
+        );
+
+    }
+
+}
 
 // ==========================================
 // FIREBASE MENU SYNC
@@ -87,43 +242,42 @@ async function loadMenuFromFirebase() {
 }
 
 
-async function saveMenuItemToFirebase(food) {
-
+async function loadOrdersFromFirebase() {
     try {
-
-        await database
-            .ref("pistaHouse/menuItems/" + food.id)
-            .set(food);
-
-        console.log(
-            "✅ Food saved to Firebase:",
-            food.name
-        );
-
+        const snapshot = await database.ref("pistaHouse/orders").once("value");
+        const firebaseOrders = snapshot.val();
+        orders = (firebaseOrders && typeof firebaseOrders === "object")
+            ? Object.values(firebaseOrders)
+            : [];
+        localStorage.setItem("orders", JSON.stringify(orders));
+        console.log("✅ Firebase Orders Loaded:", orders.length);
     } catch (error) {
-
-        alert(
-            "Firebase Error:\n" +
-            error.code +
-            "\n" +
-            error.message
-        );
-
-        console.error(
-            "❌ Firebase Food Save Error:",
-            error
-        );
-
-        throw error;
+        console.error("❌ Firebase Orders Load Error:", error);
     }
 }
+
+function listenForOrderUpdates() {
+    database.ref("pistaHouse/orders").on("value", function (snapshot) {
+        const firebaseOrders = snapshot.val();
+        orders = (firebaseOrders && typeof firebaseOrders === "object")
+            ? Object.values(firebaseOrders)
+            : [];
+        localStorage.setItem("orders", JSON.stringify(orders));
+        displayOrders();
+        updateDashboard();
+    }, function (error) {
+        console.error("❌ Firebase Orders Listener Error:", error);
+    });
+}
+
 
 // ------------------------------------------
 // 2. PAGE NAVIGATION
 // ------------------------------------------
-function showSection(sectionId) {
+function showSection(sectionId, keepOrderFilter = false) {
 
-    const sections = document.querySelectorAll(".section");
+    const sections =
+        document.querySelectorAll(".section");
 
     sections.forEach(section => {
         section.classList.remove("active");
@@ -171,6 +325,14 @@ function showSection(sectionId) {
         }
 
     });
+
+    // Normal Orders button = show all orders
+    if (
+        sectionId === "orders" &&
+        !keepOrderFilter
+    ) {
+        dashboardOrderFilter = "all";
+    }
 
     if (sectionId === "dashboard") {
         updateDashboard();
@@ -236,22 +398,94 @@ function loadRestaurant() {
 // 4. DASHBOARD & LOGOUT
 // ------------------------------------------
 function updateDashboard() {
-    const totalOrders = orders.length;
-    const pendingOrders = orders.filter(order => order.status === "Pending").length;
-    const preparingOrders = orders.filter(order => order.status === "Preparing").length;
-    const sales = orders.reduce((total, order) => total + Number(order.total || 0), 0);
 
-    const totalElement = document.getElementById("totalOrders");
-    const pendingElement = document.getElementById("pendingOrders");
-    const preparingElement = document.getElementById("preparingOrders");
-    const salesElement = document.getElementById("salesAmount");
+    const now = new Date();
 
-    if (totalElement) totalElement.innerText = totalOrders;
-    if (pendingElement) pendingElement.innerText = pendingOrders;
-    if (preparingElement) preparingElement.innerText = preparingOrders;
-    if (salesElement) salesElement.innerText = "₹" + sales.toLocaleString("en-IN");
+    // TODAY ORDERS ONLY
+    const todayOrders = orders.filter(function(order) {
+
+        if (!order.createdAt) return false;
+
+        const orderDate = new Date(order.createdAt);
+
+        return (
+            orderDate.getFullYear() === now.getFullYear() &&
+            orderDate.getMonth() === now.getMonth() &&
+            orderDate.getDate() === now.getDate()
+        );
+
+    });
+
+
+    // TODAY STATUS COUNTS
+    const totalOrders = todayOrders.length;
+
+    const pendingOrders = todayOrders.filter(function(order) {
+        return (
+            order.status === "Pending" ||
+            order.status === "Received"
+        );
+    }).length;
+
+    const preparingOrders = todayOrders.filter(function(order) {
+        return order.status === "Preparing";
+    }).length;
+
+
+    // TODAY SALES
+    const sales = todayOrders.reduce(function(total, order) {
+        return total + Number(order.total || 0);
+    }, 0);
+
+
+    // UPDATE DASHBOARD CARDS
+    const totalElement =
+        document.getElementById("totalOrders");
+
+    const pendingElement =
+        document.getElementById("pendingOrders");
+
+    const preparingElement =
+        document.getElementById("preparingOrders");
+
+    const salesElement =
+        document.getElementById("salesAmount");
+
+
+    if (totalElement) {
+        totalElement.innerText = totalOrders;
+    }
+
+    if (pendingElement) {
+        pendingElement.innerText = pendingOrders;
+    }
+
+    if (preparingElement) {
+        preparingElement.innerText = preparingOrders;
+    }
+
+    if (salesElement) {
+        salesElement.innerText =
+            "₹" + sales.toLocaleString("en-IN");
+    }
+
 }
 
+
+// DASHBOARD CARD CLICK
+function openDashboardOrders(filter) {
+
+    dashboardOrderFilter = filter;
+
+    showSection("orders", true);
+
+}
+
+
+// Refresh dashboard every minute
+setInterval(function() {
+    updateDashboard();
+}, 60000);
 // ------------------------------------------
 // SALES ANALYTICS
 // ------------------------------------------
@@ -1043,66 +1277,394 @@ function toggleFoodAvailability(id) {
 }
 
 function displayOrders() {
-    const ordersList = document.getElementById("ordersList");
+
+    const ordersList =
+        document.getElementById("ordersList");
+
     if (!ordersList) return;
 
-    if (orders.length === 0) {
+
+    // ------------------------------------------
+    // FILTER ORDERS
+    // ------------------------------------------
+
+    const now = new Date();
+
+    let filteredOrders = [...orders];
+
+
+    // TODAY
+    if (
+        dashboardOrderFilter === "today" ||
+        dashboardOrderFilter === "sales"
+    ) {
+
+        filteredOrders = orders.filter(function(order) {
+
+            if (!order.createdAt) return false;
+
+            const orderDate =
+                new Date(order.createdAt);
+
+            return (
+                orderDate.getFullYear() === now.getFullYear() &&
+                orderDate.getMonth() === now.getMonth() &&
+                orderDate.getDate() === now.getDate()
+            );
+
+        });
+
+    }
+
+
+    // PENDING
+    else if (dashboardOrderFilter === "pending") {
+
+        filteredOrders = orders.filter(function(order) {
+
+            return (
+                order.status === "Pending" ||
+                order.status === "Received"
+            );
+
+        });
+
+    }
+
+
+    // PREPARING
+    else if (dashboardOrderFilter === "preparing") {
+
+        filteredOrders = orders.filter(function(order) {
+
+            return order.status === "Preparing";
+
+        });
+
+    }
+
+
+    // ------------------------------------------
+    // FILTER TITLE
+    // ------------------------------------------
+
+    let filterTitle = "All Orders";
+
+    if (dashboardOrderFilter === "today") {
+        filterTitle = "Today's Orders";
+    }
+
+    if (dashboardOrderFilter === "pending") {
+        filterTitle = "Pending Orders";
+    }
+
+    if (dashboardOrderFilter === "preparing") {
+        filterTitle = "Preparing Orders";
+    }
+
+    if (dashboardOrderFilter === "sales") {
+        filterTitle = "Today's Sales Orders";
+    }
+
+
+    // ------------------------------------------
+    // NO ORDERS
+    // ------------------------------------------
+
+    if (filteredOrders.length === 0) {
+
         ordersList.innerHTML = `
             <div class="card">
-                <h3>🛎️ No Orders Yet</h3>
-                <p>Customer orders will appear here.</p>
+
+                <h3>🛎️ No Orders Found</h3>
+
+                <p>
+                    No orders available for
+                    <strong>${filterTitle}</strong>.
+                </p>
+
             </div>
         `;
+
         return;
     }
 
-    const sortedOrders = [...orders].reverse();
-    ordersList.innerHTML = sortedOrders.map(order => {
-        const status = order.status || "Pending";
-        const statusClass = status.toLowerCase();
 
-        let itemsHTML = "";
-        if (Array.isArray(order.items)) {
-            itemsHTML = order.items.map(item => `
-                <div style="display:flex; justify-content:space-between; margin:6px 0;">
-                    <span>${escapeHTML(item.name || "Food")} × ${Number(item.quantity || 1)}</span>
-                    <strong>₹${(Number(item.price || 0) * Number(item.quantity || 1)).toLocaleString("en-IN")}</strong>
-                </div>
-            `).join("");
-        }
+    // ------------------------------------------
+    // SORT NEWEST FIRST
+    // ------------------------------------------
 
-        const orderDate = order.createdAt ? new Date(order.createdAt).toLocaleString("en-IN") : "Recently";
+    const sortedOrders =
+        [...filteredOrders].reverse();
 
-        return `
-            <div class="order-card">
-                <div class="order-header">
-                    <div>
-                        <div class="order-id">🧾 Order #${escapeHTML(String(order.id || "----"))}</div>
-                        <div class="order-customer">👤 ${escapeHTML(order.customerName || order.name || "Customer")}</div>
+
+    // ------------------------------------------
+    // DISPLAY ORDERS
+    // ------------------------------------------
+
+    ordersList.innerHTML = `
+
+        <div style="
+            margin-bottom:15px;
+            font-size:22px;
+            font-weight:bold;
+        ">
+            ${filterTitle}
+        </div>
+
+        ${sortedOrders.map(order => {
+
+            const status =
+                order.status || "Pending";
+
+            const statusClass =
+                status.toLowerCase();
+
+
+            let itemsHTML = "";
+
+            if (Array.isArray(order.items)) {
+
+                itemsHTML =
+                    order.items.map(item => `
+
+                        <div style="
+                            display:flex;
+                            justify-content:space-between;
+                            margin:6px 0;
+                        ">
+
+                            <span>
+                                ${escapeHTML(
+                                    item.name || "Food"
+                                )}
+                                ×
+                                ${Number(
+                                    item.quantity || 1
+                                )}
+                            </span>
+
+                            <strong>
+                                ₹${(
+                                    Number(item.price || 0) *
+                                    Number(item.quantity || 1)
+                                ).toLocaleString("en-IN")}
+                            </strong>
+
+                        </div>
+
+                    `).join("");
+
+            }
+
+
+            const orderDate =
+                order.createdAt
+                    ? new Date(
+                        order.createdAt
+                    ).toLocaleString("en-IN")
+                    : "Recently";
+
+
+            return `
+
+                <div class="order-card">
+
+                    <div class="order-header">
+
+                        <div>
+
+                            <div class="order-id">
+                                🧾 Order #
+                                ${escapeHTML(
+                                    String(
+                                        order.id || "----"
+                                    )
+                                )}
+                            </div>
+
+                            <div class="order-customer">
+                                👤
+                                ${escapeHTML(
+                                    order.customerName ||
+                                    order.name ||
+                                    "Customer"
+                                )}
+                            </div>
+
+                        </div>
+
+
+                        <span class="status ${statusClass}">
+
+                            ${getStatusIcon(status)}
+
+                            ${escapeHTML(status)}
+
+                        </span>
+
                     </div>
-                    <span class="status ${statusClass}">${getStatusIcon(status)} ${escapeHTML(status)}</span>
+
+
+                    <div>
+
+                        📞
+                        ${escapeHTML(
+                            String(
+                                order.customerPhone ||
+                                order.phone ||
+                                "No phone"
+                            )
+                        )}
+
+                        <br>
+
+                        🪑 Table
+                        ${escapeHTML(
+                            String(
+                                order.tableNumber ||
+                                order.table ||
+                                "-"
+                            )
+                        )}
+
+                    </div>
+
+
+                    <div class="order-items">
+
+                        <strong>
+                            Ordered Items
+                        </strong>
+
+                        <div style="margin-top:10px;">
+                            ${itemsHTML}
+                        </div>
+
+                    </div>
+
+
+                    ${
+                        order.note
+                            ? `
+                                <p style="
+                                    background:#f8fafc;
+                                    padding:10px;
+                                    border-radius:8px;
+                                    margin-bottom:10px;
+                                ">
+                                    📝
+                                    <strong>Note:</strong>
+                                    ${escapeHTML(
+                                        String(order.note)
+                                    )}
+                                </p>
+                            `
+                            : ""
+                    }
+
+
+                    <div class="order-total">
+
+                        Total:
+                        ₹${Number(
+                            order.total || 0
+                        ).toLocaleString("en-IN")}
+
+                    </div>
+
+
+                    <p style="
+                        color:#6b7280;
+                        font-size:12px;
+                        margin-top:7px;
+                    ">
+
+                        ${orderDate}
+
+                    </p>
+
+
+                    <div class="order-actions">
+
+                        <button
+                            onclick="changeOrderStatus(
+                                '${order.id}',
+                                'Confirmed'
+                            )"
+                            style="
+                                background:#dbeafe;
+                                color:#1d4ed8;
+                            "
+                        >
+                            ✓ Confirm
+                        </button>
+
+
+                        <button
+                            onclick="changeOrderStatus(
+                                '${order.id}',
+                                'Preparing'
+                            )"
+                            style="
+                                background:#ffedd5;
+                                color:#c2410c;
+                            "
+                        >
+                            🍳 Preparing
+                        </button>
+
+
+                        <button
+                            onclick="changeOrderStatus(
+                                '${order.id}',
+                                'Ready'
+                            )"
+                            style="
+                                background:#dcfce7;
+                                color:#15803d;
+                            "
+                        >
+                            🍽️ Ready
+                        </button>
+
+
+                        <button
+                            onclick="changeOrderStatus(
+                                '${order.id}',
+                                'Served'
+                            )"
+                            style="
+                                background:#d1fae5;
+                                color:#047857;
+                            "
+                        >
+                            ✓ Served
+                        </button>
+
+
+                        <button
+                            onclick="deleteOrder(
+                                '${order.id}'
+                            )"
+                            style="
+                                background:#fee2e2;
+                                color:#dc2626;
+                            "
+                        >
+                            🗑️ Delete
+                        </button>
+
+                    </div>
+
                 </div>
-                <div>
-                    📞 ${escapeHTML(String(order.customerPhone || order.phone || "No phone"))}<br>
-                    🪑 Table ${escapeHTML(String(order.tableNumber || order.table || "-"))}
-                </div>
-                <div class="order-items">
-                    <strong>Ordered Items</strong>
-                    <div style="margin-top:10px;">${itemsHTML}</div>
-                </div>
-                ${order.note ? `<p style="background:#f8fafc; padding:10px; border-radius:8px; margin-bottom:10px;">📝 <strong>Note:</strong> ${escapeHTML(String(order.note))}</p>` : ""}
-                <div class="order-total">Total: ₹${Number(order.total || 0).toLocaleString("en-IN")}</div>
-                <p style="color:#6b7280; font-size:12px; margin-top:7px;">${orderDate}</p>
-                <div class="order-actions">
-                    <button onclick="changeOrderStatus('${order.id}', 'Confirmed')" style="background:#dbeafe; color:#1d4ed8;">✓ Confirm</button>
-                    <button onclick="changeOrderStatus('${order.id}', 'Preparing')" style="background:#ffedd5; color:#c2410c;">🍳 Preparing</button>
-                    <button onclick="changeOrderStatus('${order.id}', 'Ready')" style="background:#dcfce7; color:#15803d;">🍽️ Ready</button>
-                    <button onclick="changeOrderStatus('${order.id}', 'Served')" style="background:#d1fae5; color:#047857;">✓ Served</button>
-                    <button onclick="deleteOrder('${order.id}')" style="background:#fee2e2; color:#dc2626;">🗑️ Delete</button>
-                </div>
-            </div>
-        `;
-    }).join("");
+
+            `;
+
+        }).join("")}
+
+    `;
+
 }
 
 function getStatusIcon(status) {
@@ -1113,7 +1675,7 @@ function getStatusIcon(status) {
     return "⏳";
 }
 
-function changeOrderStatus(orderId, newStatus) {
+async function changeOrderStatus(orderId, newStatus) {
     const index = orders.findIndex(order => String(order.id) === String(orderId));
     if (index === -1) {
         alert("Order not found.");
@@ -1126,25 +1688,33 @@ function changeOrderStatus(orderId, newStatus) {
     localStorage.setItem("orders", JSON.stringify(orders));
     displayOrders();
     updateDashboard();
+
+  try {
+        await database.ref("pistaHouse/orders/" + orderId).update({
+            status: newStatus,
+            updatedAt: orders[index].updatedAt
+        });
+    } catch (error) {
+        console.error("❌ Firebase Status Update Error:", error);
+  }
+  
 }
 
-function deleteOrder(orderId) {
+async function deleteOrder(orderId) {
     if (!confirm("Delete Order #" + orderId + "?")) return;
 
     orders = orders.filter(order => String(order.id) !== String(orderId));
     localStorage.setItem("orders", JSON.stringify(orders));
     displayOrders();
     updateDashboard();
+  
+  try {
+        await database.ref("pistaHouse/orders/" + orderId).remove();
+    } catch (error) {
+        console.error("❌ Firebase Delete Order Error:", error);
+  }
 }
 
-function refreshOrders() {
-    orders = JSON.parse(localStorage.getItem("orders")) || [];
-    displayOrders();
-    updateDashboard();
-}
-
-// Auto refresh every 3 seconds
-setInterval(refreshOrders, 3000);
 
 let restaurantTables = JSON.parse(localStorage.getItem("restaurantTables")) || [];
 
@@ -1261,6 +1831,9 @@ function initializeAdmin() {
     // 1. Restaurant data immediately
     loadRestaurant();
 
+    // 1.5 Admin push notification setup
+    setupAdminPushNotifications();
+
     // 2. Show local cached data immediately
     try {
         const savedMenu = localStorage.getItem("menuItems");
@@ -1296,26 +1869,29 @@ function initializeAdmin() {
     displayOrders();
     displayTables();
 
-    // 4. Firebase runs in background
-    loadMenuFromFirebase()
-        .then(function() {
+// Firebase Orders - REALTIME SYNC
+listenForOrderUpdates();
 
-            displayMenu();
-            updateDashboard();
+// Firebase Menu
+loadMenuFromFirebase()
+    .then(function() {
+        displayMenu();
+        updateDashboard();
 
-            console.log("✅ Firebase menu synced");
+        console.log("✅ Firebase menu synced");
+    })
+    .catch(function(error) {
 
-        })
-        .catch(function(error) {
+        console.error(
+            "❌ Firebase menu background sync failed:",
+            error
+        );
 
-            console.error(
-                "❌ Firebase menu background sync failed:",
-                error
-            );
-
-        });
+    });
 
 }
+
+    
 
 if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initializeAdmin);

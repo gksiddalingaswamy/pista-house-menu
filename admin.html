@@ -20,22 +20,31 @@
 <div class="layout">
 
     <!-- SIDEBAR NAVIGATION -->
+  
     <aside class="sidebar">
         <button class="nav active" onclick="showSection('dashboard')">
             📊 Dashboard
         </button>
+      
         <button class="nav" onclick="showSection('restaurant')">
             🏪 Restaurant
         </button>
+      
         <button class="nav" onclick="showSection('menu')">
             🍔 Menu Items
         </button>
+      
         <button class="nav" onclick="showSection('orders')">
             🛎️ Orders
         </button>
+      
         <button class="nav" onclick="showSection('tables')">
-            🪑 Tables & QR
-        </button>
+    🪑 Tables & QR
+</button>
+
+<button class="nav" onclick="showSection('analytics')">
+    📊 Sales Analytics
+</button>
     </aside>
 
     <!-- MAIN CONTENT AREA -->
@@ -51,26 +60,58 @@
             </div>
 
             <div class="stats">
-                <div class="stat-card">
-                    <span>🛎️</span>
-                    <h3 id="totalOrders">0</h3>
-                    <p>Total Orders</p>
-                </div>
-                <div class="stat-card">
-                    <span>⏳</span>
-                    <h3 id="pendingOrders">0</h3>
-                    <p>Pending Orders</p>
-                </div>
-                <div class="stat-card">
-                    <span>🍳</span>
-                    <h3 id="preparingOrders">0</h3>
-                    <p>Preparing</p>
-                </div>
-                <div class="stat-card">
-                    <span>💰</span>
-                    <h3 id="salesAmount">₹0</h3>
-                    <p>Total Sales</p>
-                </div>
+
+    <!-- TOTAL ORDERS -->
+    <div
+        class="stat-card"
+        onclick="openDashboardOrders('today')"
+        style="cursor:pointer;">
+
+        <span>🛎️</span>
+        <h3 id="totalOrders">0</h3>
+        <p>Total Orders</p>
+
+    </div>
+
+
+    <!-- PENDING ORDERS -->
+    <div
+        class="stat-card"
+        onclick="openDashboardOrders('pending')"
+        style="cursor:pointer;">
+
+        <span>⏳</span>
+        <h3 id="pendingOrders">0</h3>
+        <p>Pending Orders</p>
+
+    </div>
+
+
+    <!-- PREPARING ORDERS -->
+    <div
+        class="stat-card"
+        onclick="openDashboardOrders('preparing')"
+        style="cursor:pointer;">
+
+        <span>🍳</span>
+        <h3 id="preparingOrders">0</h3>
+        <p>Preparing</p>
+
+    </div>
+
+
+    <!-- TOTAL SALES -->
+    <div
+        class="stat-card"
+        onclick="openDashboardOrders('sales')"
+        style="cursor:pointer;">
+
+        <span>💰</span>
+        <h3 id="salesAmount">₹0</h3>
+        <p>Total Sales</p>
+
+    </div>
+
             </div>
 
             <div class="card">
@@ -93,6 +134,14 @@
 
               <!-- 2. RESTAURANT SETTINGS SECTION -->
         <section id="restaurant" class="section">
+<button
+    type="button"
+    class="back-dashboard-btn"
+    onclick="showSection('dashboard')">
+    ← Back to Dashboard
+</button>
+          
+          
             <div class="section-title">
                 <div>
                     <h2>Restaurant Details</h2>
@@ -145,6 +194,13 @@
 
         <!-- 3. MENU MANAGEMENT SECTION -->
         <section id="menu" class="section">
+          <button
+    type="button"
+    class="back-dashboard-btn"
+    onclick="showSection('dashboard')">
+    ← Back to Dashboard
+          </button>
+          
             <div class="section-title">
                 <div>
                     <h2>Menu Management</h2>
@@ -201,22 +257,44 @@
 
         <!-- 4. ORDERS SECTION -->
         <section id="orders" class="section">
-            <div class="section-title">
-                <div>
-                    <h2>Live Orders</h2>
-                    <p>Manage customer orders.</p>
-                </div>
-            </div>
-            <div id="ordersList"></div>
-        </section>
 
+    <button
+        type="button"
+        class="back-dashboard-btn"
+        onclick="showSection('dashboard')">
+        ← Back to Dashboard
+    </button>
+
+    <div class="section-title">
+        <div>
+            <h2>Live Orders</h2>
+            <p>Manage customer orders.</p>
+        </div>
+    </div>
+
+    <div id="ordersList"></div>
+
+        </section>
         <!-- 5. TABLES & QR SECTION -->
         <section id="tables" class="section">
+          <button
+    type="button"
+    class="back-dashboard-btn"
+    onclick="showSection('dashboard')">
+    ← Back to Dashboard
+          </button>
+          
             <div id="tableList" class="table-grid"></div>
 
            </section>
 <!-- 6. SALES ANALYTICS SECTION -->
 <section id="analytics" class="section">
+  <button
+    type="button"
+    class="back-dashboard-btn"
+    onclick="showSection('dashboard')">
+    ← Back to Dashboard
+  </button>
 
     <div class="section-title">
 
@@ -347,7 +425,11 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-messaging-compat.js"></script>
+
 <script src="firebase-config.js"></script>
 
 <script src="Admin.js"></script>

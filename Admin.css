@@ -1042,3 +1042,38 @@ select:focus {
 .toast.error {
     background: #dc2626;
 }
+
+/* Back to Dashboard Button */
+.back-dashboard-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+
+    margin: 0 0 14px 0;
+    padding: 10px 16px;
+
+    background: #ffffff;
+    color: #1f2937;
+
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+
+    font-size: 15px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+
+    transition: all 0.2s ease;
+}
+
+.back-dashboard-btn:hover {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+    transform: translateX(-2px);
+}
+
+.back-dashboard-btn:active {
+    transform: scale(0.97);
+}
