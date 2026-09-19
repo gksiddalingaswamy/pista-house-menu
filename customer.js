@@ -982,21 +982,26 @@ function openCheckout() {
         );
 
 
-    if (nameInput) {
-        nameInput.value = "";
-    }
+    // LOAD SAVED CUSTOMER DETAILS
+const savedName = localStorage.getItem("customerName") || "";
+const savedPhone = localStorage.getItem("customerPhone") || "";
 
-    if (phoneInput) {
-        phoneInput.value = "";
-    }
+if (nameInput) {
+    nameInput.value = savedName;
+}
 
-    if (tableInput) {
-        tableInput.value = "";
-    }
+if (phoneInput) {
+    phoneInput.value = savedPhone;
+}
 
-    if (noteInput) {
-        noteInput.value = "";
-    }
+// Table & Note must be fresh for every order
+if (tableInput) {
+    tableInput.value = "";
+}
+
+if (noteInput) {
+    noteInput.value = "";
+}
 
 
     const modal =

@@ -2448,6 +2448,13 @@ function escapeHTML(value) {
         toast.style.background = "#dc2626";
     }
 
+    toast.style.cursor = "pointer";
+
+toast.onclick = function() {
+    toast.remove();
+    showSection("orders");
+};
+
     document.body.appendChild(toast);
 
     setTimeout(function() {
